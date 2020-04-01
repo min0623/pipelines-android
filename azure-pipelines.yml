@@ -40,6 +40,6 @@ steps:
     regionName: 'ap-northeast-1'
     bucketName: 's3-tokyo-dev.rememberapp.co.kr'
     sourceFolder: '$(build.artifactStagingDirectory)'
-    globExpressions: '*.apk'
+    globExpressions: '**/*.apk'
     targetFolder: 'android/apk'
     filesAcl: 'public-read-write'
