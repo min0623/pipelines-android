@@ -6,6 +6,10 @@
 pool:
   vmImage: 'macOS-10.15'
 
+variables:
+  AWS_ACCESS_KEY_ID: $(AWS.AccessKeyID)
+  AWS_SECRET_ACCESS_KEY: $(AWS.SecretAccessKey)
+
 steps:
 - task: Gradle@2
   inputs:
@@ -30,3 +34,12 @@ steps:
     artifactName: 'drop'
     artifactType: 'container'
   displayName: Publish artifacts
+
+- task: S3Upload@1
+  inputs:
+    regionName: 'ap-northeast-1'
+    bucketName: 's3-tokyo-dev.rememberapp.co.kr'
+    sourceFolder: '$(build.artifactStagingDirectory)'
+    globExpressions: '**/*.apk'
+    targetFolder: 'android/apk'
+    filesAcl: 'public-read-write'
