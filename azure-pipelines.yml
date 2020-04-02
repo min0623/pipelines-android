@@ -10,6 +10,7 @@ pool:
 variables:
   AWS_ACCESS_KEY_ID: $(AWS.AccessKeyID)
   AWS_SECRET_ACCESS_KEY: $(AWS.SecretAccessKey)
+  SLACK_API_TOKEN: $(Slack.API_TOKEN)
 
 steps:
 - task: Gradle@2
