@@ -52,3 +52,11 @@ steps:
     targetFolder: 'android/apk/$(Build.BuildNumber)'
     filesAcl: 'public-read-write'
     createBucket: true
+
+- task: SlackNotification@5
+  inputs:
+    SlackApiToken: '$(Slack.API_TOKEN)'
+    MessageAuthor: 'Azure DevOps'
+    Channel: '#android_ci_test'
+    NotificationType: 'ChatMessage'
+    Message: 'Hello World!'
