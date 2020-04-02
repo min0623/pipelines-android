@@ -3,6 +3,7 @@
 # Add steps that test, sign, and distribute the APK, save build artifacts, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/android
 
+name: $(TeamProject)_$(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 pool:
   vmImage: 'macOS-10.15'
 
@@ -48,5 +49,6 @@ steps:
     bucketName: 's3-tokyo-dev.rememberapp.co.kr'
     sourceFolder: '$(build.artifactStagingDirectory)'
     globExpressions: '**/*.apk'
-    targetFolder: 'android/apk'
+    targetFolder: 'android/apk/$(Build.BuildNumber)'
     filesAcl: 'public-read-write'
+    createBucket: true
