@@ -1,0 +1,25 @@
+# Android
+# Build your Android project with Gradle.
+# Add steps that test, sign, and distribute the APK, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/android
+
+trigger:
+  tags:
+    include:
+      - DEV_*
+      - RC_*
+
+name: $(TeamProject)_$(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+pool:
+  vmImage: 'macOS-10.15'
+
+steps:
+- task: DownloadSecureFile@1
+  name: FastlaneEnvironment
+  inputs:
+    secureFile: '.env'
+- script: mv $(FastlaneEnvironment.secureFilePath) ./fastlane/.env
+
+- script: fastlane build mode:qa
+  displayName: Build Remember Qa
+
