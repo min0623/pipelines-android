@@ -1,0 +1,180 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:android)
+
+platform :android do
+	desc "Runs all the tests"
+	lane :test do
+		gradle(task: "test")
+	end
+
+	private_lane :buildQa do
+		gradle(task: "clean")
+		gradle(
+			task: "assemble",
+			flavor: "Mock",
+			build_type: "Debug"
+		)
+	end
+
+	private_lane :buildProd do
+		gradle(task: "clean assembleJbProdRelease")
+	end
+
+	private_lane :buildMockDebugBundle do
+        gradle(task: "clean")
+        gradle(
+            task: "bundle",
+            flavor: "Mock",
+            build_type: "Debug"
+        )
+	end
+
+	private_lane :send_slack do |options|
+		output_path = options[:output_path]
+		branch = Actions.git_branch
+		author = Actions.git_author_email
+		commit = Actions.last_git_commit_hash(true)
+		message = Actions.last_git_commit_message
+
+		slack(
+		default_payloads: [:git_branch, :git_author, :last_git_commit, :last_git_commit_hash],
+		attachment_properties: {
+			"title": "[Test Build] Download Link",
+						"title_link": "#{output_path}",
+						"color": "70d98d",
+						"fields": [],
+						"footer": "Remember Android",
+						"footer_icon": "https://avatars.slack-edge.com/2020-04-22/1076757641653_8de59f8d26eb725ee894_72.png"
+					},
+					slack_url: ENV['SLACK_URL']
+		)
+	end
+
+	private_lane :s3_apk do |options|
+		path = options[:upload_path]
+		apk_path = options[:apk_path]
+
+		aws_s3(
+			access_key: ENV['AWS_ACCESS_KEY_ID'],
+			secret_access_key: ENV['AWS_SECRET_ACCESS_KEY'],
+			bucket: ENV['AWS_BUCKET'],
+			region: ENV['AWS_REGION'],
+			acl: 'public-read',
+			app_directory: 'android',
+			path: path,
+			apk: apk_path
+		)
+	end
+
+	private_lane :s3_folder do |options|
+		path = options[:upload_path]
+		folder_path = options[:folder_path]
+
+		aws_s3(
+			access_key: ENV['AWS_ACCESS_KEY_ID'],
+			secret_access_key: ENV['AWS_SECRET_ACCESS_KEY'],
+			bucket: ENV['AWS_BUCKET'],
+			region: ENV['AWS_REGION'],
+			acl: 'public-read',
+			app_directory: 'android',
+			path: path,
+			folder: folder_path
+		)
+	end
+
+	lane :upload_apk do |options|
+		file = File.open("../app/gradle.properties", "r")
+		file_data = file.readlines.map(&:chomp)
+		file.close()
+
+		version_code = file_data[0].split("APP_VERSION=")[1]
+		version_name = file_data[1].split("APP_VERSION_NAME=")[1]
+		flavor = lane_context[SharedValues::GRADLE_FLAVOR].gsub!("Jb", "")
+		app_name = "Remember #{flavor}"
+		build_time = Time.new.strftime("%Y.%m.%d_%H:%M:%S")
+
+		upload_path = "apk/#{flavor}/v#{version_code}(#{version_name})_#{build_time}"
+		output_paths = lane_context[SharedValues::GRADLE_ALL_APK_OUTPUT_PATHS]
+		s3_output_paths = []
+
+		template = File.open("template.html", "r")
+		html_content = template.read
+		template.close()
+
+		html_content.gsub!("$APP_NAME", app_name)
+		html_content.gsub!("$VERSION_NAME", version_name)
+		html_content.gsub!("$VERSION_CODE", version_code)
+		html_content.gsub!("$BUILD_TIME", build_time)
+
+		html_body_block = ""
+		output_paths.each { |output_path|
+			s3_apk(
+				upload_path: "#{upload_path}/",
+				apk_path: output_path
+			)
+
+			s3_output_path = Actions.lane_context[SharedValues::S3_APK_OUTPUT_PATH]
+
+			if output_path.include? "arm64-v8a"
+				abi = "arm64-v8a"
+			elsif output_path.include? "armeabi-v7a"
+				abi = "armeabi-v7a"
+			elsif output_path.include? "x86_64"
+			    abi = "x86_64"
+			elsif output_path.include? "x86"
+			    abi = "x86"
+			end
+			html_body_block << "<span class=\"download\" id=\"android\"><a href=\"#{s3_output_path}\" id=\"text\" class=\"btn btn-lg btn-default\" onclick=\"document.getElementById('finished').id = '';\">Install #{abi}</a></br></span></br>"
+		}
+		html_content.gsub!("$DOWNLOAD_BLOCK", html_body_block)
+
+		folder_name = 'html'
+		file_name = "index.html"
+
+		system 'mkdir', '-p', folder_name
+		File.open("#{folder_name}/#{file_name}", "w") { |html|
+			html.puts html_content
+			html.close()
+		}
+
+		s3_folder(
+			upload_path: upload_path,
+			folder_path: "fastlane/#{folder_name}"
+		)
+
+		s3_folder_path = Action.lane_context[SharedValues::S3_FOLDER_OUTPUT_PATH]
+		ENV["S3_ARTIFACT_URL"] = "#{s3_folder_path}/#{file_name}"
+	end
+
+	lane :build do |options|
+		case options[:mode]
+		when "prod"
+			buildProd
+		when "qa"
+			buildQa
+			output_paths = lane_context[SharedValues::GRADLE_ALL_APK_OUTPUT_PATHS]
+			output_paths.each { |path| println(message: path) }
+
+			upload_apk(output_path: lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH])
+			send_slack(output_path: ENV["S3_ARTIFACT_URL"])
+		end
+	end
+
+	lane :buildBundle do
+		buildMockDebugBundle
+	end
+end
