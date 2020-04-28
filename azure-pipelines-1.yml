@@ -18,7 +18,8 @@ steps:
   name: FastlaneEnvironment
   inputs:
     secureFile: '.env'
-- script: mv $(FastlaneEnvironment.secureFilePath) $(system.defaultWorkingDirectory)/pipelines-android/fastlane/.env
+- script: ls -al $(Agent.TempDirectory)
+- script: mv $(FastlaneEnvironment.secureFilePath) ./fastlane/.env
 
 - script: fastlane build mode:qa
   displayName: Build Remember Qa
