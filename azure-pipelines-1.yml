@@ -18,9 +18,9 @@ steps:
   name: FastlaneEnvironment
   inputs:
     secureFile: '.env'
-- script: ls -al $(Agent.TempDirectory)
 - script: mv $(FastlaneEnvironment.secureFilePath) ./fastlane/.env
 
+- script: chmod +x gradlew
 - script: fastlane build mode:qa
   displayName: Build Remember Qa
 
