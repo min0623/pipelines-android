@@ -161,6 +161,9 @@ platform :android do
 	end
 
 	lane :build do |options|
+		branch = ENV["GIT_BRANCH"]
+		println(message: "branch : #{branch}")
+
 		case options[:mode]
 		when "prod"
 			buildProd
@@ -176,5 +179,9 @@ platform :android do
 
 	lane :buildBundle do
 		buildMockDebugBundle
+	end
+
+	lane :logTest do
+		println(message: ENV["GIT_BRANCH"])
 	end
 end
