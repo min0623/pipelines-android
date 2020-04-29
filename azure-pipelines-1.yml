@@ -13,6 +13,9 @@ name: $(TeamProject)_$(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)
 pool:
   vmImage: 'macOS-10.15'
 
+variables:
+  GIT_BRANCH: $(Build.SourceBranch)
+
 steps:
 - task: DownloadSecureFile@1
   name: FastlaneEnvironment
